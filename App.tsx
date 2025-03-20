@@ -5,114 +5,130 @@
  * @format
  */
 
-import React from 'react';
-import type {PropsWithChildren} from 'react';
+import React, { useEffect, useRef, useState, } from 'react';
 import {
-  SafeAreaView,
-  ScrollView,
-  StatusBar,
   StyleSheet,
   Text,
-  useColorScheme,
+  TouchableOpacity,
   View,
+
 } from 'react-native';
 
-import {
-  Colors,
-  DebugInstructions,
-  Header,
-  LearnMoreLinks,
-  ReloadInstructions,
-} from 'react-native/Libraries/NewAppScreen';
+import { Camera, useCameraDevice, useCameraPermission } from 'react-native-vision-camera';
+import { CameraRoll } from "@react-native-camera-roll/camera-roll";
 
-type SectionProps = PropsWithChildren<{
-  title: string;
-}>;
 
-function Section({children, title}: SectionProps): React.JSX.Element {
-  const isDarkMode = useColorScheme() === 'dark';
-  return (
-    <View style={styles.sectionContainer}>
-      <Text
-        style={[
-          styles.sectionTitle,
-          {
-            color: isDarkMode ? Colors.white : Colors.black,
-          },
-        ]}>
-        {title}
-      </Text>
-      <Text
-        style={[
-          styles.sectionDescription,
-          {
-            color: isDarkMode ? Colors.light : Colors.dark,
-          },
-        ]}>
-        {children}
-      </Text>
+function App() {
+  const device = useCameraDevice('back');
+  const { hasPermission, requestPermission } = useCameraPermission();
+  const camera = useRef(null);
+  const [videoText, setVideoText] = useState('Старт');
+
+  async function reqPermission() {
+    const permission = await requestPermission();
+  }
+
+  function startingVideoRecording(cam) {
+    cam.current.startRecording({
+      onRecordingFinished: async (video) => {
+        const path = video.path;
+        await CameraRoll.saveAsset(`file://${path}`, {
+          type: 'video',
+        });
+      },
+      onRecordingError: (error) => console.error(error),
+    });
+    setVideoText('Стоп');
+  }
+
+  async function stoppingVideoRecording(cam) {
+    await cam.current.stopRecording();
+    setVideoText('Старт');
+  }
+
+  useEffect(()=>{
+    reqPermission();
+  },[]);
+
+  if (!hasPermission || !device) {
+    return (
+    <View>
+      <Text>Error</Text>
     </View>
-  );
-}
-
-function App(): React.JSX.Element {
-  const isDarkMode = useColorScheme() === 'dark';
-
-  const backgroundStyle = {
-    backgroundColor: isDarkMode ? Colors.darker : Colors.lighter,
-  };
+  )}
 
   return (
-    <SafeAreaView style={backgroundStyle}>
-      <StatusBar
-        barStyle={isDarkMode ? 'light-content' : 'dark-content'}
-        backgroundColor={backgroundStyle.backgroundColor}
+    <View style = {styles.container}>
+      <Camera
+        ref={camera}
+        style={StyleSheet.absoluteFill}
+        device={device}
+        isActive={true}
+        photo={true}
+        video={true}
       />
-      <ScrollView
-        contentInsetAdjustmentBehavior="automatic"
-        style={backgroundStyle}>
-        <Header />
-        <View
-          style={{
-            backgroundColor: isDarkMode ? Colors.black : Colors.white,
-          }}>
-          <Section title="Step One">
-            Edit <Text style={styles.highlight}>App.tsx</Text> to change this
-            screen and then come back to see your edits.
-          </Section>
-          <Section title="See Your Changes">
-            <ReloadInstructions />
-          </Section>
-          <Section title="Debug">
-            <DebugInstructions />
-          </Section>
-          <Section title="Learn More">
-            Read the docs to discover what to do next:
-          </Section>
-          <LearnMoreLinks />
-        </View>
-      </ScrollView>
-    </SafeAreaView>
-  );
+      <TouchableOpacity style = {[styles.snapContainer]}
+        onPress = {async() =>{
+          if (camera.current){
+            const photo = await camera.current.takePhoto();
+            await CameraRoll.saveAsset(`file://${photo.path}`, {
+              type: 'photo',
+            });
+            console.log(photo);
+          }
+        }}
+        >
+        <Text>Фото</Text>
+    </TouchableOpacity>
+
+    <TouchableOpacity style = {[styles.snapContainer]}
+        onPress = {async() =>{
+          if (camera.current){
+            if (videoText == 'Старт'){
+              startingVideoRecording(camera);
+            } else {
+              stoppingVideoRecording(camera);
+            }
+          }
+        }}
+        >
+        <Text>{videoText}</Text>
+    </TouchableOpacity>    
+  </View>
+  )
 }
+
+
 
 const styles = StyleSheet.create({
-  sectionContainer: {
-    marginTop: 32,
-    paddingHorizontal: 24,
+  absoluteFill: {
+    flex:1,
   },
-  sectionTitle: {
-    fontSize: 24,
-    fontWeight: '600',
+  container: {
+    flex: 1,
+    justifyContent:'flex-end',
   },
-  sectionDescription: {
-    marginTop: 8,
-    fontSize: 18,
-    fontWeight: '400',
+  snapContainer: {
+    borderWidth: 2,
+    borderColor: '#ff0000',
+    height: 70,
+    width: 70,
+    borderRadius: 50,
+    justifyContent: 'center',
+    alignItems: 'center',
+    alignSelf: 'center',
+    marginBottom: 20,
+    //position: 'relative',
+    //top: 180,
+    //flex: 1,
   },
-  highlight: {
-    fontWeight: '700',
-  },
+  cam: {
+    height: '100%',
+    //flex: 1,
+    //marginTop: 50,
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+  },  
 });
 
 export default App;
